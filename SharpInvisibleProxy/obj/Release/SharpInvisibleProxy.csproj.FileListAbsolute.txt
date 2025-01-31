@@ -1,0 +1,8 @@
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\bin\Release\SharpInvisibleProxy.exe.config
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\bin\Release\SharpInvisibleProxy.exe
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\bin\Release\SharpInvisibleProxy.pdb
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\obj\Release\SharpInvisibleProxy.csproj.AssemblyReference.cache
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\obj\Release\SharpInvisibleProxy.csproj.SuggestedBindingRedirects.cache
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\obj\Release\SharpInvisibleProxy.csproj.CoreCompileInputs.cache
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\obj\Release\SharpInvisibleProxy.exe
+C:\Users\ofir\source\repos\SharpInvisibleProxy\SharpInvisibleProxy\obj\Release\SharpInvisibleProxy.pdb
