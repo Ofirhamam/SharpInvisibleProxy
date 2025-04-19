@@ -25,3 +25,5 @@ To update the binding to another certificate, use this command:
 ```bash
 netsh http update sslcert ipport=0.0.0.0:443 certhash=0f09ba64e065dde844d02bd3f34a64d3de46381d appid={81eaa9c5-8965-4a0a-a00a-8edada28c473}
 ```
+
+![alt text](https://github.com/Ofirhamam/SharpInvisibleProxy/blob/main/POC.png?raw=true)
