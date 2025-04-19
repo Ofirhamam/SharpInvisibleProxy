@@ -13,19 +13,24 @@ namespace SharpInvisibleProxy
 {
     interface IProxy
     {
-        void Bind();
+        Task Bind(); 
         void HandlePostRequest(string content);
     }
+
+
     abstract class Proxy : IProxy
     {
         private protected string _bindAddr;
         private protected int _bindPort;
         private protected string _targethost;
         private protected HttpListener _listener;
-        public void Bind()
+
+        public async Task Bind()
         {
             try
             {
+                _listener = new HttpListener();
+
                 _listener.Prefixes.Add($"https://{_bindAddr}:{_bindPort}/");
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                 _listener.Start();
@@ -33,13 +38,25 @@ namespace SharpInvisibleProxy
             }
             catch (Exception ex)
             {
-                throw ex;
+                Console.WriteLine("Failed to start listener: " + ex.Message);
+                return;
             }
+
             while (true)
             {
-                Task.WaitAll(ProccessRequests());
+                try
+                {
+                    await ProccessRequests();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Error in Bind loop: " + ex.Message);
+                }
             }
         }
+
+
+
         private async Task ProccessRequests()
         {
             HttpListenerContext context = await _listener.GetContextAsync();
@@ -55,18 +72,16 @@ namespace SharpInvisibleProxy
                 using (MemoryStream memoryStream = new MemoryStream())
                 {
                     // Copy the input stream to the memory stream
-                    incomingRequest.InputStream.CopyTo(memoryStream);
+                    await incomingRequest.InputStream.CopyToAsync(memoryStream);
 
                     // Reset the position of the memory stream to the beginning
                     memoryStream.Seek(0, SeekOrigin.Begin);
 
                     using (StreamReader reader = new StreamReader(memoryStream, incomingRequest.ContentEncoding))
                     {
-                        //string content = reader.ReadToEnd();
                         content = reader.ReadToEnd();
                         HandlePostRequest(content);
                         byteArray = Encoding.UTF8.GetBytes(content);
-
                     }
                 }
             }
@@ -75,12 +90,6 @@ namespace SharpInvisibleProxy
             string targetUrl = "https://" + targetIpAddress + incomingRequest.Url.PathAndQuery;
             HttpWebRequest webRequest = (HttpWebRequest)WebRequest.Create(targetUrl);
             webRequest.Method = incomingRequest.HttpMethod;
-
-            //debug option - redirect the proxy traffic to burp.
-            //string MyProxyHostString = "127.0.0.1";
-            //int MyProxyPort = 8080;
-            //webRequest.Proxy = new WebProxy(MyProxyHostString, MyProxyPort);
-            //debug option
 
             // Set the 'Host' property instead of modifying the 'Host' header
             webRequest.Host = _targethost;
@@ -99,8 +108,7 @@ namespace SharpInvisibleProxy
                 using (Stream dataStream = webRequest.GetRequestStream())
                 {
                     byteArray = Encoding.UTF8.GetBytes(content);
-                    dataStream.Write(byteArray, 0, byteArray.Length);
-
+                    await dataStream.WriteAsync(byteArray, 0, byteArray.Length);
                 }
             }
 
@@ -109,37 +117,67 @@ namespace SharpInvisibleProxy
                 return true; // Allow all certificates
             };
 
-
             using (HttpWebResponse webResponse = (HttpWebResponse)webRequest.GetResponse())
             {
                 // Copy response headers
                 foreach (string header in webResponse.Headers.AllKeys)
                 {
-                    // Skip the restricted headers
                     if (IsRestrictedHeader(header))
                         continue;
 
                     context.Response.Headers[header] = webResponse.Headers[header];
                 }
 
-                // Copy response status code
                 context.Response.StatusCode = (int)webResponse.StatusCode;
-
-                // Set the Content-Length header of the response explicitly
                 context.Response.ContentLength64 = webResponse.ContentLength;
 
-                // Copy response body
-                using (Stream inputStream = webResponse.GetResponseStream())
+                using (Stream rawStream = webResponse.GetResponseStream())
                 {
-                    using (Stream outputStream = context.Response.OutputStream)
+                    Stream responseStream = rawStream;
+
+                    // Check for gzip encoding
+                    if (webResponse.ContentEncoding.ToLower().Contains("gzip"))
                     {
-                        inputStream.CopyTo(outputStream);
+                        responseStream = new System.IO.Compression.GZipStream(rawStream, System.IO.Compression.CompressionMode.Decompress);
+                    }
+
+                    // Buffer the response so we can both read and forward it
+                    using (MemoryStream memoryStream = new MemoryStream())
+                    {
+                        await responseStream.CopyToAsync(memoryStream);
+                        memoryStream.Position = 0;
+
+                        // Correct the Content-Length before sending it to the client
+                        context.Response.ContentLength64 = memoryStream.Length;
+
+                        // Try to read as text if content type is text or json or xml
+                        string contentType = webResponse.ContentType.ToLower();
+                        if (contentType.Contains("text") || contentType.Contains("json") || contentType.Contains("xml"))
+                        {
+                            using (StreamReader reader = new StreamReader(memoryStream, Encoding.UTF8, true, 1024, true))
+                            {
+                                string responseBody = reader.ReadToEnd();
+                                Console.WriteLine("=== Response Body ===");
+                                Console.WriteLine(responseBody);
+                                Console.WriteLine("=====================");
+                            }
+                        }
+
+                        // Rewind and write to response
+                        memoryStream.Position = 0;
+                        using (Stream outputStream = context.Response.OutputStream)
+                        {
+                            await memoryStream.CopyToAsync(outputStream);
+                            await outputStream.FlushAsync();  // Ensure everything is written before closing
+                        }
                     }
                 }
             }
 
+            // Ensure the response stream is properly closed only after everything has been written.
             context.Response.Close();
         }
+
         private protected Dictionary<string, string> ParseRequestBody(string requestBody)
         {
             var parameters = new Dictionary<string, string>();
@@ -162,6 +200,7 @@ namespace SharpInvisibleProxy
 
             return parameters;
         }
+
         bool IsRestrictedHeader(string header)
         {
             // List of restricted headers
@@ -173,7 +212,7 @@ namespace SharpInvisibleProxy
 
         public virtual void HandlePostRequest(string content)
         {
-
+            // Implementation to handle POST requests can be customized here
         }
     }
 }
